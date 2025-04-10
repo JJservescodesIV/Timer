@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Focus Timer Pro</title>
   <style>
     /* Reset & Basic Styles */
@@ -32,6 +32,7 @@
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       width: 360px;
       padding: 20px;
+      margin-bottom: 20px;
     }
     
     /* Timer Display */
@@ -103,6 +104,26 @@
       border-bottom: 1px dashed #ececec;
     }
     
+    /* Rewards Panel */
+    .rewards {
+      margin-top: 20px;
+      padding: 10px;
+      border: 2px solid #4CAF50;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .rewards h3 {
+      margin-bottom: 10px;
+    }
+    .badge {
+      display: inline-block;
+      background: #ffd700;
+      color: #333;
+      padding: 5px 10px;
+      border-radius: 12px;
+      margin-top: 10px;
+    }
+    
     /* Responsive */
     @media (max-width: 400px) {
       .card {
@@ -112,8 +133,9 @@
   </style>
 </head>
 <body>
-
   <h1>Focus Timer Pro</h1>
+  
+  <!-- Timer Card -->
   <div class="card">
     <!-- Timer Display -->
     <div id="timerDisplay" class="timer">25:00</div>
@@ -128,10 +150,10 @@
     <!-- Settings -->
     <div class="settings">
       <label for="workDuration">Work Duration (minutes):</label>
-      <input type="number" id="workDuration" value="25" min="1">
+      <input type="number" id="workDuration" value="25" min="1" />
       
       <label for="breakDuration">Break Duration (minutes):</label>
-      <input type="number" id="breakDuration" value="5" min="1">
+      <input type="number" id="breakDuration" value="5" min="1" />
       
       <button id="updateSettings" class="btn btn-secondary">Update Settings</button>
     </div>
@@ -143,7 +165,14 @@
     </div>
   </div>
 
-  <!-- Optional: Hidden audio element for sound effects -->
+  <!-- Rewards Card -->
+  <div class="card rewards">
+    <h3>Rewards</h3>
+    <div>Points: <span id="pointsDisplay">0</span></div>
+    <div id="badgeDisplay" class="badge" style="display: none;"></div>
+  </div>
+
+  <!-- Hidden audio element for sound effects -->
   <audio id="alertSound" src="https://www.myinstants.com/media/sounds/beep-07.mp3"></audio>
 
   <script>
@@ -153,6 +182,7 @@
     let remainingTime; // in seconds.
     let workDuration = parseInt(document.getElementById('workDuration').value) * 60;
     let breakDuration = parseInt(document.getElementById('breakDuration').value) * 60;
+    const pointsPerWorkSession = 10;  // Award 10 points for each work session.
     
     // DOM Elements
     const timerDisplay = document.getElementById('timerDisplay');
@@ -162,8 +192,58 @@
     const updateSettingsBtn = document.getElementById('updateSettings');
     const logEntries = document.getElementById('logEntries');
     const alertSound = document.getElementById('alertSound');
+    const pointsDisplay = document.getElementById('pointsDisplay');
+    const badgeDisplay = document.getElementById('badgeDisplay');
     
-    // Load session log from localStorage
+    // Initialize rewards data from localStorage.
+    let points = parseInt(localStorage.getItem('points')) || 0;
+    let badge = localStorage.getItem('badge') || '';
+    
+    // Badge system: define milestones and corresponding badge messages.
+    const badges = [
+      { threshold: 50, label: 'Beginner Achiever' },
+      { threshold: 100, label: 'Consistent Performer' },
+      { threshold: 200, label: 'Productivity Master' }
+    ];
+    
+    // Load points and badge info from localStorage.
+    function loadRewards() {
+      points = parseInt(localStorage.getItem('points')) || 0;
+      badge = localStorage.getItem('badge') || '';
+      updateRewardsDisplay();
+    }
+    
+    // Update rewards display.
+    function updateRewardsDisplay() {
+      pointsDisplay.innerText = points;
+      if (badge) {
+        badgeDisplay.style.display = "inline-block";
+        badgeDisplay.innerText = badge;
+      } else {
+        badgeDisplay.style.display = "none";
+      }
+    }
+    
+    // Save rewards data to localStorage.
+    function saveRewards() {
+      localStorage.setItem('points', points);
+      localStorage.setItem('badge', badge);
+    }
+    
+    // Check and update badge if milestones are reached.
+    function checkForBadge() {
+      for (let j = badges.length - 1; j >= 0; j--) {
+        if (points >= badges[j].threshold && badge !== badges[j].label) {
+          badge = badges[j].label;
+          alert(`Congratulations! You've unlocked the badge: "${badge}"`);
+          updateRewardsDisplay();
+          break;
+        }
+      }
+      saveRewards();
+    }
+    
+    // Load session log from localStorage.
     function loadSessionLog() {
       const storedLogs = localStorage.getItem('sessionLog');
       if (storedLogs) {
@@ -171,7 +251,7 @@
       }
     }
     
-    // Save session log to localStorage
+    // Save session log to localStorage.
     function saveSessionLog() {
       localStorage.setItem('sessionLog', logEntries.innerHTML);
     }
@@ -188,7 +268,9 @@
     function updateTimerDisplay() {
       const minutes = Math.floor(remainingTime / 60);
       const seconds = remainingTime % 60;
-      timerDisplay.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      timerDisplay.innerText = `${minutes.toString().padStart(2, '0')}:${seconds
+        .toString()
+        .padStart(2, '0')}`;
     }
     
     // Start the timer with a 1-second interval.
@@ -199,17 +281,22 @@
           remainingTime--;
           updateTimerDisplay();
         } else {
-          // Session has ended.
           clearInterval(timerInterval);
           timerInterval = null;
           logSession();
           notifyUser();
           playSound();
+          // If it's a work session, award points.
+          if (isWorkSession) {
+            points += pointsPerWorkSession;
+            updateRewardsDisplay();
+            checkForBadge();
+          }
           // Alternate session type.
           isWorkSession = !isWorkSession;
           remainingTime = isWorkSession ? workDuration : breakDuration;
           updateTimerDisplay();
-          // Uncomment the line below for auto-starting the next session.
+          // Uncomment below to auto-start the next session.
           // startTimer();
         }
       }, 1000);
@@ -238,28 +325,25 @@
       const sessionMessage = isWorkSession
         ? 'Work session complete! Time for a break.'
         : 'Break over! Ready for another work session?';
-
-      if ("Notification" in window) {
-        if (Notification.permission === "granted") {
-          new Notification("Focus Timer Pro", { body: sessionMessage });
-        } else if (Notification.permission !== "denied") {
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification('Focus Timer Pro', { body: sessionMessage });
+        } else if (Notification.permission !== 'denied') {
           Notification.requestPermission().then(permission => {
-            if(permission === "granted") {
-              new Notification("Focus Timer Pro", { body: sessionMessage });
+            if (permission === 'granted') {
+              new Notification('Focus Timer Pro', { body: sessionMessage });
             }
           });
         }
       }
-      // Fallback alert.
       alert(sessionMessage);
     }
     
-    // Play a sound effect when the timer finishes.
+    // Play a sound effect when the timer completes a session.
     function playSound() {
-      // Using HTML5 Audio playback.
       alertSound.currentTime = 0; // Reset to start.
       alertSound.play().catch(error => {
-        console.error("Error playing sound:", error);
+        console.error('Error playing sound:', error);
       });
     }
     
@@ -276,13 +360,14 @@
         workDuration = workInput * 60;
         breakDuration = breakInput * 60;
         resetTimer();
-        alert("Settings updated and timer reset.");
+        alert('Settings updated and timer reset.');
       } else {
-        alert("Please input valid durations (greater than 0).");
+        alert('Please input valid durations (greater than 0).');
       }
     });
     
-    // Load session logs when the app starts.
+    // On load: initialize timer, rewards and session log.
+    loadRewards();
     loadSessionLog();
     resetTimer();
   </script>
