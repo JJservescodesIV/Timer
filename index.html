@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Focus Timer Pro</title>
+  <style>
+    /* Reset & Basic Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      flex-direction: column;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    
+    /* Card Container */
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      width: 360px;
+      padding: 20px;
+    }
+    
+    /* Timer Display */
+    .timer {
+      font-size: 48px;
+      text-align: center;
+      margin: 20px 0;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    
+    /* Button styles */
+    .btn {
+      background: #4CAF50;
+      border: none;
+      color: #fff;
+      padding: 10px 15px;
+      margin: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.2s ease-in-out;
+    }
+    .btn:hover {
+      background: #45a049;
+    }
+    .btn-secondary {
+      background: #008CBA;
+    }
+    .btn-secondary:hover {
+      background: #007bb5;
+    }
+    .btn-danger {
+      background: #f44336;
+    }
+    .btn-danger:hover {
+      background: #e53935;
+    }
+    
+    /* Settings Panel */
+    .settings {
+      margin: 20px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .settings label {
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .settings input {
+      padding: 8px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    
+    /* Session Log */
+    .session-log {
+      max-height: 150px;
+      overflow-y: auto;
+      border-top: 1px solid #ececec;
+      margin-top: 20px;
+      padding-top: 10px;
+      font-size: 14px;
+    }
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px dashed #ececec;
+    }
+    
+    /* Responsive */
+    @media (max-width: 400px) {
+      .card {
+        width: 90%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Focus Timer Pro</h1>
+  <div class="card">
+    <!-- Timer Display -->
+    <div id="timerDisplay" class="timer">25:00</div>
+    
+    <!-- Control Buttons -->
+    <div style="text-align: center;">
+      <button id="startBtn" class="btn">Start</button>
+      <button id="stopBtn" class="btn btn-secondary">Stop</button>
+      <button id="resetBtn" class="btn btn-danger">Reset</button>
+    </div>
+    
+    <!-- Settings -->
+    <div class="settings">
+      <label for="workDuration">Work Duration (minutes):</label>
+      <input type="number" id="workDuration" value="25" min="1">
+      
+      <label for="breakDuration">Break Duration (minutes):</label>
+      <input type="number" id="breakDuration" value="5" min="1">
+      
+      <button id="updateSettings" class="btn btn-secondary">Update Settings</button>
+    </div>
+    
+    <!-- Session Log -->
+    <div class="session-log" id="sessionLog">
+      <strong>Session Log</strong>
+      <div id="logEntries"></div>
+    </div>
+  </div>
+
+  <script>
+    // Global Variables & State
+    let timerInterval = null;
+    let isWorkSession = true; // To alternate between work and break
+    let remainingTime; // in seconds
+    let workDuration = parseInt(document.getElementById('workDuration').value) * 60;
+    let breakDuration = parseInt(document.getElementById('breakDuration').value) * 60;
+    
+    // DOM Elements
+    const timerDisplay = document.getElementById('timerDisplay');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const updateSettingsBtn = document.getElementById('updateSettings');
+    const logEntries = document.getElementById('logEntries');
+    
+    // Initialize timer to work session duration.
+    function resetTimer() {
+      stopTimer();
+      isWorkSession = true;
+      remainingTime = workDuration;
+      updateTimerDisplay();
+    }
+    
+    // Update the timer text display.
+    function updateTimerDisplay() {
+      const minutes = Math.floor(remainingTime / 60);
+      const seconds = remainingTime % 60;
+      timerDisplay.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    // Start the timer with a one-second interval
+    function startTimer() {
+      // Avoid multiple intervals
+      if (timerInterval) return;
+      
+      timerInterval = setInterval(() => {
+        if (remainingTime > 0) {
+          remainingTime--;
+          updateTimerDisplay();
+        } else {
+          // Session complete, log the session and flip session type.
+          clearInterval(timerInterval);
+          timerInterval = null;
+          logSession();
+          // Notify the user.
+          notifyUser();
+          // Alternate session type.
+          isWorkSession = !isWorkSession;
+          remainingTime = isWorkSession ? workDuration : breakDuration;
+          updateTimerDisplay();
+          // Auto-start the next session if desired (here we wait for user start)
+          // Uncomment the next line to auto-start the next session.
+          // startTimer();
+        }
+      }, 1000);
+    }
+    
+    function stopTimer() {
+      if(timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+    
+    // Logs the finished session
+    function logSession() {
+      const now = new Date();
+      const sessionType = isWorkSession ? 'Work' : 'Break';
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerText = `${sessionType} session finished at ${now.toLocaleTimeString()}`;
+      logEntries.prepend(entry); // Latest on top
+    }
+    
+    // Browser Notification (if permitted)
+    function notifyUser() {
+      const sessionType = isWorkSession ? 'Work session complete! Time for a break.' : 'Break over! Ready for another work session?';
+      // Check for notification support & permission.
+      if ("Notification" in window) {
+        if (Notification.permission === "granted") {
+          new Notification("Focus Timer Pro", { body: sessionType });
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then(permission => {
+            if(permission === "granted") {
+              new Notification("Focus Timer Pro", { body: sessionType });
+            }
+          });
+        }
+      }
+      // Also use an alert as fallback.
+      alert(sessionType);
+    }
+    
+    // Event Listeners
+    startBtn.addEventListener('click', startTimer);
+    stopBtn.addEventListener('click', stopTimer);
+    resetBtn.addEventListener('click', resetTimer);
+    
+    // Update settings and reset timer based on new durations.
+    updateSettingsBtn.addEventListener('click', () => {
+      const workInput = parseInt(document.getElementById('workDuration').value);
+      const breakInput = parseInt(document.getElementById('breakDuration').value);
+      // Validate inputs.
+      if (workInput > 0 && breakInput > 0) {
+        workDuration = workInput * 60;
+        breakDuration = breakInput * 60;
+        resetTimer();
+        alert("Settings updated and timer reset.");
+      } else {
+        alert("Please input valid durations (greater than 0).");
+      }
+    });
+    
+    // Initialize on load.
+    resetTimer();
+  </script>
+</body>
+</html>
