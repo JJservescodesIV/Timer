@@ -143,11 +143,14 @@
     </div>
   </div>
 
+  <!-- Optional: Hidden audio element for sound effects -->
+  <audio id="alertSound" src="https://www.myinstants.com/media/sounds/beep-07.mp3"></audio>
+
   <script>
     // Global Variables & State
     let timerInterval = null;
-    let isWorkSession = true; // To alternate between work and break
-    let remainingTime; // in seconds
+    let isWorkSession = true; // Alternates between work & break sessions.
+    let remainingTime; // in seconds.
     let workDuration = parseInt(document.getElementById('workDuration').value) * 60;
     let breakDuration = parseInt(document.getElementById('breakDuration').value) * 60;
     
@@ -158,6 +161,20 @@
     const resetBtn = document.getElementById('resetBtn');
     const updateSettingsBtn = document.getElementById('updateSettings');
     const logEntries = document.getElementById('logEntries');
+    const alertSound = document.getElementById('alertSound');
+    
+    // Load session log from localStorage
+    function loadSessionLog() {
+      const storedLogs = localStorage.getItem('sessionLog');
+      if (storedLogs) {
+        logEntries.innerHTML = storedLogs;
+      }
+    }
+    
+    // Save session log to localStorage
+    function saveSessionLog() {
+      localStorage.setItem('sessionLog', logEntries.innerHTML);
+    }
     
     // Initialize timer to work session duration.
     function resetTimer() {
@@ -167,74 +184,83 @@
       updateTimerDisplay();
     }
     
-    // Update the timer text display.
+    // Update timer display text.
     function updateTimerDisplay() {
       const minutes = Math.floor(remainingTime / 60);
       const seconds = remainingTime % 60;
       timerDisplay.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
     
-    // Start the timer with a one-second interval
+    // Start the timer with a 1-second interval.
     function startTimer() {
-      // Avoid multiple intervals
-      if (timerInterval) return;
-      
+      if (timerInterval) return; // Prevent multiple intervals
       timerInterval = setInterval(() => {
         if (remainingTime > 0) {
           remainingTime--;
           updateTimerDisplay();
         } else {
-          // Session complete, log the session and flip session type.
+          // Session has ended.
           clearInterval(timerInterval);
           timerInterval = null;
           logSession();
-          // Notify the user.
           notifyUser();
+          playSound();
           // Alternate session type.
           isWorkSession = !isWorkSession;
           remainingTime = isWorkSession ? workDuration : breakDuration;
           updateTimerDisplay();
-          // Auto-start the next session if desired (here we wait for user start)
-          // Uncomment the next line to auto-start the next session.
+          // Uncomment the line below for auto-starting the next session.
           // startTimer();
         }
       }, 1000);
     }
     
     function stopTimer() {
-      if(timerInterval) {
+      if (timerInterval) {
         clearInterval(timerInterval);
         timerInterval = null;
       }
     }
     
-    // Logs the finished session
+    // Log the finished session and save the log to localStorage.
     function logSession() {
       const now = new Date();
       const sessionType = isWorkSession ? 'Work' : 'Break';
       const entry = document.createElement('div');
       entry.className = 'log-entry';
       entry.innerText = `${sessionType} session finished at ${now.toLocaleTimeString()}`;
-      logEntries.prepend(entry); // Latest on top
+      logEntries.prepend(entry); // Newest log at top.
+      saveSessionLog();
     }
     
-    // Browser Notification (if permitted)
+    // Use the Web Notifications API to alert the user.
     function notifyUser() {
-      const sessionType = isWorkSession ? 'Work session complete! Time for a break.' : 'Break over! Ready for another work session?';
-      // Check for notification support & permission.
+      const sessionMessage = isWorkSession
+        ? 'Work session complete! Time for a break.'
+        : 'Break over! Ready for another work session?';
+
       if ("Notification" in window) {
         if (Notification.permission === "granted") {
-          new Notification("Focus Timer Pro", { body: sessionType });
+          new Notification("Focus Timer Pro", { body: sessionMessage });
         } else if (Notification.permission !== "denied") {
           Notification.requestPermission().then(permission => {
             if(permission === "granted") {
-              new Notification("Focus Timer Pro", { body: sessionType });
+              new Notification("Focus Timer Pro", { body: sessionMessage });
             }
           });
         }
       }
-      // Also use an alert as fallback.
-      alert(sessionType);
+      // Fallback alert.
+      alert(sessionMessage);
+    }
+    
+    // Play a sound effect when the timer finishes.
+    function playSound() {
+      // Using HTML5 Audio playback.
+      alertSound.currentTime = 0; // Reset to start.
+      alertSound.play().catch(error => {
+        console.error("Error playing sound:", error);
+      });
     }
     
     // Event Listeners
@@ -242,11 +268,10 @@
     stopBtn.addEventListener('click', stopTimer);
     resetBtn.addEventListener('click', resetTimer);
     
-    // Update settings and reset timer based on new durations.
+    // Update settings and reinitialize timer.
     updateSettingsBtn.addEventListener('click', () => {
       const workInput = parseInt(document.getElementById('workDuration').value);
       const breakInput = parseInt(document.getElementById('breakDuration').value);
-      // Validate inputs.
       if (workInput > 0 && breakInput > 0) {
         workDuration = workInput * 60;
         breakDuration = breakInput * 60;
@@ -257,7 +282,8 @@
       }
     });
     
-    // Initialize on load.
+    // Load session logs when the app starts.
+    loadSessionLog();
     resetTimer();
   </script>
 </body>
